@@ -25,20 +25,39 @@ class InvestigationService:
         self.deployment_inspector = DeploymentInspector(executor)
         self.network_inspector = NetworkInspector(executor)
 
-    def investigate(self) -> dict[str, dict[str, Any]]:
+    def investigate(
+        self, on_progress: Callable[[str, str], None] | None = None
+    ) -> dict[str, dict[str, Any]]:
         """Run each evidence collector and keep partial results on failure."""
 
-        pods = self._run_step("pods", self.pod_inspector.inspect)
+        pods = self._run_step(
+            "pods", self.pod_inspector.inspect, "checking_pods", on_progress
+        )
         problematic_pods = pods.get("problematic_pods", [])
         if not isinstance(problematic_pods, list):
             problematic_pods = []
 
         logs = self._run_step(
-            "logs", lambda: self.logs_collector.collect(problematic_pods)
+            "logs",
+            lambda: self.logs_collector.collect(problematic_pods),
+            "reading_logs",
+            on_progress,
         )
-        events = self._run_step("events", self.events_analyzer.analyze)
-        deployments = self._run_step("deployments", self.deployment_inspector.inspect)
-        network = self._run_step("network", lambda: self.network_inspector.inspect(logs))
+        events = self._run_step(
+            "events", self.events_analyzer.analyze, "analyzing_events", on_progress
+        )
+        deployments = self._run_step(
+            "deployments",
+            self.deployment_inspector.inspect,
+            "inspecting_deployments",
+            on_progress,
+        )
+        network = self._run_step(
+            "network",
+            lambda: self.network_inspector.inspect(logs),
+            "checking_networking",
+            on_progress,
+        )
 
         return {
             "pods": pods,
@@ -50,14 +69,22 @@ class InvestigationService:
 
     @staticmethod
     def _run_step(
-        name: str, operation: Callable[[], dict[str, Any]]
+        name: str,
+        operation: Callable[[], dict[str, Any]],
+        progress_step: str | None = None,
+        on_progress: Callable[[str, str], None] | None = None,
     ) -> dict[str, Any]:
         logger.info("Starting Kubernetes investigation step: {}", name)
+        if progress_step and on_progress:
+            on_progress(progress_step, "active")
         try:
             return operation()
         except Exception as exc:  # Keeps independent evidence available if one collector fails.
             logger.exception("Kubernetes investigation step '{}' failed", name)
             return {"healthy": False, "error": f"{name} inspection failed: {exc}"}
+        finally:
+            if progress_step and on_progress:
+                on_progress(progress_step, "completed")
 
 
 def get_investigation_service() -> InvestigationService:

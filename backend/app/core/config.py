@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     openrouter_max_retries: int = 2
     kubeconfig_path: str = ""
     cors_origins: str = "http://localhost:3000"
+    insforge_base_url: str = ""
+    insforge_timeout_seconds: float = 5.0
 
     model_config = SettingsConfigDict(
         env_file=".env",

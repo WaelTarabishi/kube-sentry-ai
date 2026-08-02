@@ -48,7 +48,10 @@ Secrets are read only from the environment and must not be committed. Then colle
 evidence and generate a diagnosis with:
 
 ```bash
-curl -X POST http://localhost:8000/investigate
+curl -X POST http://localhost:8000/investigate \
+  -H "Authorization: Bearer <insforge-access-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"request_id":"<uuid>","namespace":"all"}'
 ```
 
 The response keeps the raw `investigation` evidence and adds a structured
@@ -72,11 +75,38 @@ npm run dev
 
 On macOS or Linux, use `cp .env.example .env.local`.
 
+### InsForge setup
+
+1. Create an InsForge project and enable email/password authentication.
+2. Run [`insforge/setup.sql`](insforge/setup.sql) in its SQL editor. This creates
+   the history table, per-user row-level security, realtime channel, and progress
+   trigger. Remove any prototype/public policies on `realtime.channels` before
+   production so the included per-user subscription policy is authoritative.
+3. Copy the project URL and anon key into `frontend/.env.local`:
+
+   ```env
+   NEXT_PUBLIC_INSFORGE_BASE_URL=https://your-project.region.insforge.app
+   NEXT_PUBLIC_INSFORGE_ANON_KEY=your-anon-key
+   ```
+
+4. Add the same project URL to `backend/.env`:
+
+   ```env
+   INSFORGE_BASE_URL=https://your-project.region.insforge.app
+   ```
+
+The browser restores the InsForge session, subscribes to
+`investigation:<user-id>`, and sends its access token to FastAPI. FastAPI verifies
+that token with InsForge before running the existing investigation workflow. Each
+collector transition updates the authenticated user's history record; the SQL
+trigger publishes that update to the dashboard in realtime.
+
 ## Repository layout
 
 ```text
 backend/    FastAPI application and Kubernetes investigation modules
 frontend/   Next.js application
+insforge/   InsForge table, RLS, channel, and realtime trigger setup
 docs/       Architecture notes
 prompts/    Project implementation prompts
 ```

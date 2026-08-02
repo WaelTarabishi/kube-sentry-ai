@@ -1,5 +1,6 @@
 """API models for Kubernetes evidence gathering and AI diagnosis."""
 
+from uuid import UUID, uuid4
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -29,3 +30,10 @@ class InvestigationResponse(BaseModel):
     status: Literal["success"]
     investigation: InvestigationPayload
     diagnosis: Diagnosis
+
+
+class InvestigationRequest(BaseModel):
+    """Client context used for realtime progress and history correlation."""
+
+    request_id: UUID = Field(default_factory=uuid4)
+    namespace: str = Field(default="all", min_length=1, max_length=253)
