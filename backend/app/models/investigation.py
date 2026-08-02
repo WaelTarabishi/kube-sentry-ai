@@ -1,8 +1,8 @@
-"""API response models for Kubernetes evidence gathering."""
+"""API models for Kubernetes evidence gathering and AI diagnosis."""
 
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class InvestigationPayload(BaseModel):
@@ -13,6 +13,19 @@ class InvestigationPayload(BaseModel):
     network: dict[str, Any]
 
 
+class Diagnosis(BaseModel):
+    """Structured, user-facing result produced by the Kubernetes AI agent."""
+
+    root_cause: str = Field(min_length=1)
+    explanation: str = Field(min_length=1)
+    fix: str = Field(min_length=1)
+    kubectl_commands: list[str] = Field(min_length=1)
+    prevention_recommendation: str = Field(min_length=1)
+    confidence: int = Field(ge=0, le=100)
+    confidence_reasoning: list[str] = Field(min_length=1)
+
+
 class InvestigationResponse(BaseModel):
     status: Literal["success"]
     investigation: InvestigationPayload
+    diagnosis: Diagnosis

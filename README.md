@@ -1,6 +1,8 @@
 # AI Kubernetes Troubleshooting Agent
 
-Foundation for an on-demand Kubernetes troubleshooting application. The FastAPI backend can collect pod, log, event, deployment, service, endpoint, and DNS evidence through `kubectl`. AI reasoning is intentionally not implemented yet.
+An on-demand Kubernetes troubleshooting application. The FastAPI backend collects
+pod, log, event, deployment, service, endpoint, and DNS evidence through `kubectl`,
+then asks an OpenRouter-hosted model to return a structured root-cause diagnosis.
 
 ## Run with Docker
 
@@ -34,11 +36,26 @@ On macOS or Linux, use `cp .env.example .env` instead of `copy`.
 
 The backend requires `kubectl` on its `PATH` and access to a cluster. Set
 `KUBECONFIG_PATH` in `backend/.env` when the default kubectl configuration should
-not be used. Then collect evidence with:
+not be used. Provide the OpenRouter key supplied through InsForge and choose an
+OpenRouter model in the same file:
+
+```env
+OPENROUTER_API_KEY=your-insforge-provided-key
+OPENROUTER_MODEL=your-openrouter-model-id
+```
+
+Secrets are read only from the environment and must not be committed. Then collect
+evidence and generate a diagnosis with:
 
 ```bash
 curl -X POST http://localhost:8000/investigate
 ```
+
+The response keeps the raw `investigation` evidence and adds a structured
+`diagnosis` with the root cause, explanation, fix, `kubectl` commands, prevention
+recommendation, confidence score, and confidence reasoning. If OpenRouter is not
+configured or is temporarily unavailable, the endpoint returns HTTP `503` without
+exposing provider details or credentials.
 
 The backend Docker image includes `kubectl`. When running it in a container,
 mount a kubeconfig into the container and set `KUBECONFIG_PATH` to that in-container

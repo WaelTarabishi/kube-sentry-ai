@@ -21,8 +21,8 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="AI Kubernetes Agent API",
-    description="API foundation for on-demand Kubernetes troubleshooting.",
-    version="0.1.0",
+    description="On-demand Kubernetes evidence collection and AI diagnosis.",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
@@ -51,4 +51,3 @@ async def log_requests(request: Request, call_next):
 
 
 app.include_router(api_router)
-

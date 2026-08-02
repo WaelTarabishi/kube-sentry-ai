@@ -7,6 +7,8 @@ services:
     environment:
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       OPENROUTER_MODEL: ${OPENROUTER_MODEL:-}
+      OPENROUTER_TIMEOUT_SECONDS: ${OPENROUTER_TIMEOUT_SECONDS:-30}
+      OPENROUTER_MAX_RETRIES: ${OPENROUTER_MAX_RETRIES:-2}
       KUBECONFIG_PATH: ${KUBECONFIG_PATH:-}
       CORS_ORIGINS: http://localhost:3000
     ports:
@@ -36,4 +38,3 @@ services:
       backend:
         condition: service_healthy
     restart: unless-stopped
-

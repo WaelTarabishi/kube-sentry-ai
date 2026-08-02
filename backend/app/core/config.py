@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     service_name: str = "ai-kubernetes-agent"
     openrouter_api_key: str = ""
     openrouter_model: str = ""
+    openrouter_timeout_seconds: float = 30.0
+    openrouter_max_retries: int = 2
     kubeconfig_path: str = ""
     cors_origins: str = "http://localhost:3000"
 
@@ -27,4 +29,3 @@ def get_settings() -> Settings:
 
 
 settings = get_settings()
-

@@ -1,2 +1,1 @@
-"""Future AI reasoning layer."""
-
+"""AI reasoning layer for structured Kubernetes incident diagnosis."""
