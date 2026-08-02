@@ -1,6 +1,6 @@
 # AI Kubernetes Troubleshooting Agent
 
-Foundation for an on-demand Kubernetes troubleshooting application. The current implementation includes a FastAPI health service, a Next.js interface, environment templates, and Docker configuration. Kubernetes inspection and AI reasoning are intentionally left as placeholders.
+Foundation for an on-demand Kubernetes troubleshooting application. The FastAPI backend can collect pod, log, event, deployment, service, endpoint, and DNS evidence through `kubectl`. AI reasoning is intentionally not implemented yet.
 
 ## Run with Docker
 
@@ -32,6 +32,18 @@ uvicorn app.main:app --reload
 
 On macOS or Linux, use `cp .env.example .env` instead of `copy`.
 
+The backend requires `kubectl` on its `PATH` and access to a cluster. Set
+`KUBECONFIG_PATH` in `backend/.env` when the default kubectl configuration should
+not be used. Then collect evidence with:
+
+```bash
+curl -X POST http://localhost:8000/investigate
+```
+
+The backend Docker image includes `kubectl`. When running it in a container,
+mount a kubeconfig into the container and set `KUBECONFIG_PATH` to that in-container
+path, or provide cluster credentials through your deployment environment.
+
 ### Frontend
 
 ```bash
@@ -46,11 +58,10 @@ On macOS or Linux, use `cp .env.example .env.local`.
 ## Repository layout
 
 ```text
-backend/    FastAPI application and future investigation modules
+backend/    FastAPI application and Kubernetes investigation modules
 frontend/   Next.js application
 docs/       Architecture notes
 prompts/    Project implementation prompts
 ```
 
 See [docs/architecture.md](docs/architecture.md) for the current boundaries.
-

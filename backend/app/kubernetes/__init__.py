@@ -1,2 +1,1 @@
-"""Future Kubernetes investigation layer."""
-
+"""Kubernetes evidence collection layer powered by kubectl."""
