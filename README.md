@@ -3,6 +3,8 @@
 An on-demand Kubernetes troubleshooting application. The FastAPI backend collects
 pod, log, event, deployment, service, endpoint, and DNS evidence through `kubectl`,
 then asks an OpenRouter-hosted model to return a structured root-cause diagnosis.
+The dashboard lists every usable cluster in the backend kubeconfig and runs each
+investigation against the cluster the user selects.
 
 ## Run with Docker
 
@@ -48,10 +50,13 @@ Secrets are read only from the environment and must not be committed. Then colle
 evidence and generate a diagnosis with:
 
 ```bash
+curl http://localhost:8000/clusters \
+  -H "Authorization: Bearer <insforge-access-token>"
+
 curl -X POST http://localhost:8000/investigate \
   -H "Authorization: Bearer <insforge-access-token>" \
   -H "Content-Type: application/json" \
-  -d '{"request_id":"<uuid>","namespace":"all"}'
+  -d '{"request_id":"<uuid>","namespace":"all","cluster_context":"<context-from-clusters>"}'
 ```
 
 The response keeps the raw `investigation` evidence and adds a structured
@@ -63,6 +68,14 @@ exposing provider details or credentials.
 The backend Docker image includes `kubectl`. When running it in a container,
 mount a kubeconfig into the container and set `KUBECONFIG_PATH` to that in-container
 path, or provide cluster credentials through your deployment environment.
+
+### Test intentional Kubernetes failures
+
+Use the isolated manifests and cleanup instructions in
+[`k8s/failure-scenarios/README.md`](k8s/failure-scenarios/README.md). They cover
+CrashLoopBackOff from a missing environment variable, ImagePullBackOff, OOMKilled,
+and a Service selector mismatch. Run them only on a disposable local or development
+cluster.
 
 ### Frontend
 

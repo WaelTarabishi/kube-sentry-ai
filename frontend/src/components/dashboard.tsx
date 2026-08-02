@@ -8,6 +8,7 @@ import {
   Clock,
   Copy,
   Cube,
+  GitBranch,
   SignOut,
   SpinnerGap,
   WarningCircle,
@@ -15,6 +16,7 @@ import {
 
 import { insforge } from "@/lib/insforge";
 import {
+  getClusters,
   getInvestigationError,
   getRecentInvestigations,
   investigateCluster,
@@ -22,6 +24,7 @@ import {
 import type {
   Diagnosis,
   InvestigationHistory,
+  KubernetesCluster,
   ProgressState,
   ProgressStep,
   ProgressStepId,
@@ -78,12 +81,17 @@ function formatDate(value: string): string {
 
 export function Dashboard({ accessToken, user, onSignOut }: DashboardProps) {
   const [diagnosis, setDiagnosis] = useState<Diagnosis | null>(null);
+  const [outcome, setOutcome] = useState<"issue_found" | "healthy" | null>(null);
+  const [clusters, setClusters] = useState<KubernetesCluster[]>([]);
+  const [selectedContext, setSelectedContext] = useState<string | null>(null);
   const [progress, setProgress] = useState<ProgressStep[]>(newProgress);
   const [history, setHistory] = useState<InvestigationHistory[]>([]);
   const [isInvestigating, setIsInvestigating] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [clustersLoading, setClustersLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  const [clustersError, setClustersError] = useState<string | null>(null);
   const [realtimeWarning, setRealtimeWarning] = useState<string | null>(null);
   const activeRequestRef = useRef<string | null>(null);
 
@@ -98,9 +106,37 @@ export function Dashboard({ accessToken, user, onSignOut }: DashboardProps) {
     }
   }, [user.id]);
 
+  const loadClusters = useCallback(async () => {
+    setClustersError(null);
+    setClustersLoading(true);
+    try {
+      const result = await getClusters(accessToken);
+      setClusters(result.clusters);
+      setSelectedContext((current) => {
+        if (
+          current &&
+          result.clusters.some((cluster) => cluster.selected_context === current)
+        ) {
+          return current;
+        }
+        return result.clusters[0]?.selected_context ?? null;
+      });
+    } catch (caughtError) {
+      setClusters([]);
+      setSelectedContext(null);
+      setClustersError(getInvestigationError(caughtError));
+    } finally {
+      setClustersLoading(false);
+    }
+  }, [accessToken]);
+
   useEffect(() => {
     void loadHistory();
   }, [loadHistory]);
+
+  useEffect(() => {
+    void loadClusters();
+  }, [loadClusters]);
 
   useEffect(() => {
     const channel = `investigation:${user.id}`;
@@ -142,9 +178,11 @@ export function Dashboard({ accessToken, user, onSignOut }: DashboardProps) {
   }, [user.id]);
 
   async function handleInvestigate() {
+    if (!selectedContext) return;
     const requestId = crypto.randomUUID();
     activeRequestRef.current = requestId;
     setDiagnosis(null);
+    setOutcome(null);
     setError(null);
     setProgress(
       newProgress().map((step, index) => ({
@@ -155,8 +193,13 @@ export function Dashboard({ accessToken, user, onSignOut }: DashboardProps) {
     setIsInvestigating(true);
 
     try {
-      const result = await investigateCluster(accessToken, requestId);
+      const result = await investigateCluster(
+        accessToken,
+        requestId,
+        selectedContext,
+      );
       setDiagnosis(result.diagnosis);
+      setOutcome(result.outcome);
       setProgress((current) =>
         current.map((step) => ({ ...step, state: "completed" })),
       );
@@ -211,7 +254,7 @@ export function Dashboard({ accessToken, user, onSignOut }: DashboardProps) {
 
         <div className="grid lg:grid-cols-[minmax(0,1.35fr)_minmax(19rem,0.65fr)]">
           <section className="px-6 py-8 sm:px-9 sm:py-10 lg:border-r lg:border-emerald-950/10">
-            <div className="flex flex-col gap-6 border-b border-emerald-950/10 pb-8 sm:flex-row sm:items-end sm:justify-between">
+            <div className="pb-7">
               <div>
                 <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-accent">
                   Cluster diagnostics
@@ -223,20 +266,38 @@ export function Dashboard({ accessToken, user, onSignOut }: DashboardProps) {
                   Collect live evidence, run AI reasoning, and receive a practical fix.
                 </p>
               </div>
-              <button
-                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-ink px-5 py-3.5 text-sm font-semibold text-white transition duration-300 ease-out hover:-translate-y-0.5 hover:bg-emerald-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-4 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={isInvestigating}
-                onClick={() => void handleInvestigate()}
-                type="button"
-              >
-                {isInvestigating ? (
-                  <SpinnerGap aria-hidden className="animate-spin motion-reduce:animate-none" size={17} />
-                ) : (
-                  <ArrowClockwise aria-hidden size={17} weight="bold" />
-                )}
-                {isInvestigating ? "Investigating..." : "Investigate Cluster"}
-              </button>
             </div>
+
+            <ClusterSelector
+              clusters={clusters}
+              error={clustersError}
+              isDisabled={isInvestigating}
+              isLoading={clustersLoading}
+              onRetry={() => void loadClusters()}
+              onSelect={(context) => {
+                setSelectedContext(context);
+                setDiagnosis(null);
+                setOutcome(null);
+                setError(null);
+              }}
+              selectedContext={selectedContext}
+            />
+
+            <button
+              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-ink px-5 py-3.5 text-sm font-semibold text-white transition duration-300 ease-out hover:-translate-y-0.5 hover:bg-emerald-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-4 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              disabled={isInvestigating || !selectedContext || clustersLoading}
+              onClick={() => void handleInvestigate()}
+              type="button"
+            >
+              {isInvestigating ? (
+                <SpinnerGap aria-hidden className="animate-spin motion-reduce:animate-none" size={17} />
+              ) : (
+                <ArrowClockwise aria-hidden size={17} weight="bold" />
+              )}
+              {isInvestigating
+                ? "Investigating Kubernetes Cluster..."
+                : "Investigate Cluster"}
+            </button>
 
             <section className="py-8" aria-labelledby="progress-heading">
               <div className="flex items-center justify-between">
@@ -283,11 +344,15 @@ export function Dashboard({ accessToken, user, onSignOut }: DashboardProps) {
             {error ? (
               <div className="mb-8 flex gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-sm leading-relaxed text-red-700" role="alert">
                 <WarningCircle aria-hidden className="mt-0.5 shrink-0" size={18} />
-                <p>{error}</p>
+                <p className="whitespace-pre-line">{error}</p>
               </div>
             ) : null}
 
-            <DiagnosisPanel diagnosis={diagnosis} isLoading={isInvestigating} />
+            <DiagnosisPanel
+              diagnosis={diagnosis}
+              isLoading={isInvestigating}
+              outcome={outcome}
+            />
           </section>
 
           <HistoryPanel
@@ -299,6 +364,123 @@ export function Dashboard({ accessToken, user, onSignOut }: DashboardProps) {
         </div>
       </div>
     </main>
+  );
+}
+
+function ClusterSelector({
+  clusters,
+  selectedContext,
+  isLoading,
+  isDisabled,
+  error,
+  onSelect,
+  onRetry,
+}: {
+  clusters: KubernetesCluster[];
+  selectedContext: string | null;
+  isLoading: boolean;
+  isDisabled: boolean;
+  error: string | null;
+  onSelect: (context: string) => void;
+  onRetry: () => void;
+}) {
+  return (
+    <section
+      className="border-y border-emerald-950/10 py-6"
+      aria-labelledby="cluster-heading"
+    >
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h2 id="cluster-heading" className="text-sm font-semibold text-ink">
+            Select a cluster
+          </h2>
+          <p className="mt-1 text-xs text-emerald-950/45">
+            Clusters are loaded from the backend kubeconfig file.
+          </p>
+        </div>
+        <button
+          aria-label="Refresh Kubernetes clusters"
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-emerald-950/10 text-emerald-950/55 transition hover:text-ink disabled:opacity-50"
+          disabled={isDisabled || isLoading}
+          onClick={onRetry}
+          type="button"
+        >
+          <ArrowClockwise
+            aria-hidden
+            className={
+              isLoading ? "animate-spin motion-reduce:animate-none" : ""
+            }
+            size={15}
+          />
+        </button>
+      </div>
+
+      {error ? (
+        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-relaxed text-amber-800">
+          <p className="whitespace-pre-line">{error}</p>
+        </div>
+      ) : isLoading ? (
+        <div
+          className="mt-4 grid gap-3 sm:grid-cols-2"
+          aria-label="Clusters loading"
+        >
+          {[0, 1].map((item) => (
+            <div
+              className="h-20 animate-pulse rounded-xl bg-emerald-950/5 motion-reduce:animate-none"
+              key={item}
+            />
+          ))}
+        </div>
+      ) : clusters.length === 0 ? (
+        <p className="mt-4 rounded-xl border border-emerald-950/10 bg-canvas px-4 py-4 text-sm text-emerald-950/55">
+          No usable clusters were found. Add a cluster context to your kubeconfig
+          file.
+        </p>
+      ) : (
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          {clusters.map((cluster) => {
+            const selected = cluster.selected_context === selectedContext;
+            return (
+              <button
+                aria-pressed={selected}
+                className={`flex min-w-0 items-start gap-3 rounded-xl border px-4 py-3 text-left transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                  selected
+                    ? "border-accent bg-accent/5 shadow-[0_8px_24px_-18px_rgba(47,118,88,0.8)]"
+                    : "border-emerald-950/10 bg-white/60 hover:border-emerald-950/25"
+                }`}
+                disabled={isDisabled}
+                key={cluster.name}
+                onClick={() => onSelect(cluster.selected_context)}
+                type="button"
+              >
+                <span
+                  className={`mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg ${
+                    selected
+                      ? "bg-accent text-white"
+                      : "bg-emerald-950/5 text-emerald-950/45"
+                  }`}
+                >
+                  <GitBranch aria-hidden size={16} weight="duotone" />
+                </span>
+                <span className="min-w-0">
+                  <span className="flex items-center gap-2 text-sm font-semibold text-ink">
+                    <span className="truncate">{cluster.name}</span>
+                    {cluster.is_current ? (
+                      <span className="rounded-full bg-accent/10 px-2 py-0.5 font-mono text-[8px] uppercase tracking-[0.1em] text-accent">
+                        Current
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="mt-1 block truncate font-mono text-[10px] text-emerald-950/40">
+                    {cluster.selected_context}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -332,9 +514,11 @@ function ProgressIcon({ state }: { state: ProgressState }) {
 function DiagnosisPanel({
   diagnosis,
   isLoading,
+  outcome,
 }: {
   diagnosis: Diagnosis | null;
   isLoading: boolean;
+  outcome: "issue_found" | "healthy" | null;
 }) {
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -365,6 +549,27 @@ function DiagnosisPanel({
         <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-emerald-950/45">
           Start an investigation to collect evidence and identify the root cause.
         </p>
+      </section>
+    );
+  }
+
+  if (outcome === "healthy") {
+    return (
+      <section
+        className="border-t border-emerald-950/10 pt-8"
+        aria-live="polite"
+      >
+        <div className="rounded-2xl border border-accent/20 bg-accent/5 px-5 py-6 text-center">
+          <span className="mx-auto grid h-10 w-10 place-items-center rounded-full bg-accent text-white">
+            <Check aria-hidden size={18} weight="bold" />
+          </span>
+          <h2 className="mt-4 text-lg font-semibold text-ink">
+            No critical Kubernetes issues detected.
+          </h2>
+          <p className="mt-2 text-sm text-emerald-950/55">
+            Cluster appears healthy.
+          </p>
+        </div>
       </section>
     );
   }
@@ -510,7 +715,7 @@ function HistoryPanel({
                       {item.root_cause ?? "Investigation in progress"}
                     </p>
                     <p className="mt-1 font-mono text-[9px] text-emerald-950/40">
-                      {formatDate(item.created_at)} · {item.namespace}
+                      {formatDate(item.created_at)} · {item.cluster_context}
                     </p>
                   </td>
                   <td className="px-2 py-3 align-top font-mono text-xs text-emerald-950/60">

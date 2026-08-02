@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: missing-env-demo
+  namespace: k8s-agent-failure-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: missing-env-demo
+  template:
+    metadata:
+      labels:
+        app: missing-env-demo
+        failure-scenario: crashloop-missing-env
+    spec:
+      containers:
+        - name: application
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              if [ -z "$DATABASE_URL" ]; then
+                echo "Required environment variable DATABASE_URL is missing"
+                exit 1
+              fi
+              sleep 3600

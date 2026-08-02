@@ -19,11 +19,17 @@ from app.kubernetes.pod_inspector import PodInspector
 class InvestigationService:
     def __init__(self, executor: KubectlExecutor | None = None) -> None:
         executor = executor or KubectlExecutor(kubeconfig_path=settings.kubeconfig_path)
+        self.executor = executor
         self.pod_inspector = PodInspector(executor)
         self.logs_collector = LogsCollector(executor)
         self.events_analyzer = EventsAnalyzer(executor)
         self.deployment_inspector = DeploymentInspector(executor)
         self.network_inspector = NetworkInspector(executor)
+
+    def for_context(self, context: str) -> "InvestigationService":
+        """Create an isolated service so concurrent requests never share context state."""
+
+        return InvestigationService(self.executor.with_context(context))
 
     def investigate(
         self, on_progress: Callable[[str, str], None] | None = None

@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: invalid-image-demo
+  namespace: k8s-agent-failure-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: invalid-image-demo
+  template:
+    metadata:
+      labels:
+        app: invalid-image-demo
+        failure-scenario: image-pull-backoff
+    spec:
+      containers:
+        - name: application
+          image: nginx:this-tag-does-not-exist-k8s-agent-test

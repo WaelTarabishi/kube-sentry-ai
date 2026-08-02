@@ -27,8 +27,23 @@ export interface Diagnosis {
 
 export interface InvestigationResponse {
   status: "success";
+  outcome: "issue_found" | "healthy";
+  cluster_context: string;
   investigation: Record<string, unknown>;
   diagnosis: Diagnosis;
+}
+
+export interface KubernetesCluster {
+  name: string;
+  server: string;
+  contexts: string[];
+  selected_context: string;
+  is_current: boolean;
+}
+
+export interface ClusterListResponse {
+  clusters: KubernetesCluster[];
+  current_context: string | null;
 }
 
 export interface InvestigationHistory {
@@ -38,6 +53,7 @@ export interface InvestigationHistory {
   created_at: string;
   root_cause: string | null;
   namespace: string;
+  cluster_context: string;
   confidence: number | null;
   status: "running" | "success" | "failed";
   progress_step: ProgressStepId | null;

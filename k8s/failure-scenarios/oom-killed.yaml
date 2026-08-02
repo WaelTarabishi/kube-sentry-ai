@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oom-demo
+  namespace: k8s-agent-failure-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oom-demo
+  template:
+    metadata:
+      labels:
+        app: oom-demo
+        failure-scenario: oom-killed
+    spec:
+      containers:
+        - name: application
+          image: python:3.12-alpine
+          command:
+            - python
+            - -c
+            - |
+              import time
+              print("Allocating memory beyond the container limit", flush=True)
+              memory = bytearray(96 * 1024 * 1024)
+              time.sleep(3600)
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 32Mi

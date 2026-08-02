@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+from pathlib import Path
 from dataclasses import asdict, dataclass
 
 from loguru import logger
@@ -31,10 +32,20 @@ class KubectlExecutor:
         kubeconfig_path: str = "",
         timeout_seconds: int = 30,
         executable: str = "kubectl",
+        context: str | None = None,
     ) -> None:
         self.kubeconfig_path = kubeconfig_path
         self.timeout_seconds = timeout_seconds
         self.executable = executable
+        self.context = context
+
+    def with_context(self, context: str) -> "KubectlExecutor":
+        return KubectlExecutor(
+            kubeconfig_path=self.kubeconfig_path,
+            timeout_seconds=self.timeout_seconds,
+            executable=self.executable,
+            context=context,
+        )
 
     def execute(self, *arguments: str) -> KubectlResult:
         if not arguments or any(not isinstance(arg, str) or "\x00" in arg for arg in arguments):
@@ -44,10 +55,20 @@ class KubectlExecutor:
                 stderr="Invalid kubectl arguments.",
             )
 
-        command = [self.executable, *arguments]
+        command = [self.executable]
+        if self.context:
+            command.extend(["--context", self.context])
+        command.extend(arguments)
         environment = os.environ.copy()
         if self.kubeconfig_path:
-            environment["KUBECONFIG"] = self.kubeconfig_path
+            kubeconfig = Path(self.kubeconfig_path).expanduser()
+            if not kubeconfig.is_file():
+                return KubectlResult(
+                    command=command,
+                    success=False,
+                    stderr=f"Kubeconfig file was not found at '{kubeconfig}'.",
+                )
+            environment["KUBECONFIG"] = str(kubeconfig)
 
         logger.info("Running kubectl command: {}", " ".join(command))
         try:

@@ -91,7 +91,12 @@ class InvestigationHistoryStore:
         self.base_url = (base_url or settings.insforge_base_url).rstrip("/")
 
     def start(
-        self, *, request_id: str, namespace: str, user: AuthenticatedUser
+        self,
+        *,
+        request_id: str,
+        namespace: str,
+        cluster_context: str,
+        user: AuthenticatedUser,
     ) -> None:
         self._request(
             "POST",
@@ -101,6 +106,7 @@ class InvestigationHistoryStore:
                     "request_id": request_id,
                     "user_id": user.id,
                     "namespace": namespace,
+                    "cluster_context": cluster_context,
                     "status": "running",
                     "progress_step": "checking_pods",
                     "progress_state": "active",

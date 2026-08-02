@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS public.investigations (
   created_at timestamptz NOT NULL DEFAULT now(),
   root_cause text,
   namespace text NOT NULL DEFAULT 'all',
+  cluster_context text NOT NULL DEFAULT 'current-context',
   confidence integer CHECK (confidence BETWEEN 0 AND 100),
   status text NOT NULL DEFAULT 'running'
     CHECK (status IN ('running', 'success', 'failed')),
@@ -15,6 +16,9 @@ CREATE TABLE IF NOT EXISTS public.investigations (
     CHECK (progress_state IN ('active', 'completed', 'failed')),
   error_message text
 );
+
+ALTER TABLE public.investigations
+  ADD COLUMN IF NOT EXISTS cluster_context text NOT NULL DEFAULT 'current-context';
 
 CREATE INDEX IF NOT EXISTS investigations_user_created_idx
   ON public.investigations (user_id, created_at DESC);
