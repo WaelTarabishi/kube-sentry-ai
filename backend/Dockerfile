@@ -27,8 +27,8 @@ RUN apt-get update \
     && adduser --system --ingroup app app
 
 COPY requirements.txt ./
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --retries 10 --timeout 300 -r requirements.txt
 
 COPY --chown=app:app app ./app
 

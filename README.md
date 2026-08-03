@@ -12,6 +12,17 @@ investigation against the cluster the user selects.
 docker compose up --build
 ```
 
+Docker reads project-wide values from the root `.env`. Set the host paths used
+by the read-only Kubernetes and AWS credential mounts before starting:
+
+```env
+KUBECONFIG_HOST_PATH=C:/Users/your-user/.kube/config
+```
+
+The backend service loads its application settings, including OpenRouter and
+InsForge values, from `backend/.env`. The image includes `kubectl`; contexts that
+use an external credential plugin also require that plugin in the image.
+
 Then open:
 
 - Frontend: http://localhost:3000

@@ -4,15 +4,16 @@ services:
   backend:
     build:
       context: ./backend
+    env_file:
+      - ./backend/.env
     environment:
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
-      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-}
-      OPENROUTER_TIMEOUT_SECONDS: ${OPENROUTER_TIMEOUT_SECONDS:-30}
-      OPENROUTER_MAX_RETRIES: ${OPENROUTER_MAX_RETRIES:-2}
-      KUBECONFIG_PATH: ${KUBECONFIG_PATH:-}
-      INSFORGE_BASE_URL: ${INSFORGE_BASE_URL:-}
-      INSFORGE_TIMEOUT_SECONDS: ${INSFORGE_TIMEOUT_SECONDS:-5}
+      KUBECONFIG_PATH: /home/app/.kube/config
       CORS_ORIGINS: http://localhost:3000
+    volumes:
+      - type: bind
+        source: ${KUBECONFIG_HOST_PATH}
+        target: /home/app/.kube/config
+        read_only: true
     ports:
       - "8000:8000"
     healthcheck:

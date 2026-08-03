@@ -62,7 +62,7 @@ class ClusterRegistry:
 
         current_context = _string_or_none(payload.get("current-context"))
         contexts_by_cluster: dict[str, list[str]] = {}
-        for item in payload.get("contexts", []):
+        for item in _list_or_empty(payload.get("contexts")):
             if not isinstance(item, dict):
                 continue
             context_name = _string_or_none(item.get("name"))
@@ -76,7 +76,7 @@ class ClusterRegistry:
                 contexts_by_cluster.setdefault(cluster_name, []).append(context_name)
 
         clusters: list[KubernetesCluster] = []
-        for item in payload.get("clusters", []):
+        for item in _list_or_empty(payload.get("clusters")):
             if not isinstance(item, dict):
                 continue
             name = _string_or_none(item.get("name"))
@@ -241,6 +241,12 @@ def _classify_kubectl_error(stderr: str) -> ClusterAccessError:
 
 def _string_or_none(value: object) -> str | None:
     return value if isinstance(value, str) and value else None
+
+
+def _list_or_empty(value: object) -> list[Any]:
+    """Normalize kubectl's null collections for an empty kubeconfig."""
+
+    return value if isinstance(value, list) else []
 
 
 def get_cluster_registry() -> ClusterRegistry:

@@ -52,11 +52,16 @@ class FakeExecutor:
 
 
 class EmptyConfigExecutor:
+    def __init__(self, collections: list | None = None) -> None:
+        self.collections = collections
+
     def execute(self, *arguments: str) -> KubectlResult:
         return KubectlResult(
             ["kubectl", *arguments],
             True,
-            stdout=json.dumps({"clusters": [], "contexts": []}),
+            stdout=json.dumps(
+                {"clusters": self.collections, "contexts": self.collections}
+            ),
             return_code=0,
         )
 
@@ -74,10 +79,17 @@ def test_registry_lists_every_usable_kubeconfig_cluster() -> None:
 
 def test_registry_explains_empty_kubeconfig() -> None:
     with pytest.raises(ClusterAccessError) as caught:
-        ClusterRegistry(EmptyConfigExecutor()).list_clusters()
+        ClusterRegistry(EmptyConfigExecutor(collections=[])).list_clusters()
 
     assert caught.value.code == "no_kubeconfig_clusters"
     assert "No usable Kubernetes clusters" in caught.value.message
+
+
+def test_registry_explains_kubectl_null_collections() -> None:
+    with pytest.raises(ClusterAccessError) as caught:
+        ClusterRegistry(EmptyConfigExecutor(collections=None)).list_clusters()
+
+    assert caught.value.code == "no_kubeconfig_clusters"
 
 
 def test_registry_rejects_unknown_context() -> None:
